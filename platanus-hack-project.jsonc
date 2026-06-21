@@ -1,16 +1,9 @@
 {
-  // Your project's name, as it will appear on the voting page.
-  "project-name": "<FILL THIS>",
+  "project-name": "Minecraft Companion — Interfaz por voz conversacional",
 
-  // Short one-line summary of your project (in Spanish).
-  "project-oneliner-spanish": "<FILL THIS>",
+  "project-oneliner-spanish": "Tu aliado IA en Minecraft: habla en español natural y nunca vuelves a jugar solo.",
 
-  // Brief description of your project (in Spanish).
-  "project-description-spanish": "<FILL THIS>",
+  "project-description-spanish": "Un companion inteligente que revoluciona cómo juegas Minecraft. Tu aliado entiende contexto, propone estrategias y actúa contigo en tiempo real.",
 
-  // Public URL where your project is deployed and running.
-  // Must be a valid URL, for example: https://my-project.vercel.app
-  // If your project is an app, put the download link here instead
-  // (for example, a URL to download an APK).
-  "deploy-url": "<FILL THIS>"
+  "deploy-url": "https://github.com/alexmancilla/minecraft-agent"
 }

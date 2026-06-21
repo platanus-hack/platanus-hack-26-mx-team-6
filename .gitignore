@@ -1,5 +1,4 @@
 node_modules/
 .env
-mc-server/world/
-mc-server/*.jar
+mc-server/
 *.log

@@ -31,8 +31,37 @@ bot.loadPlugin(pathfinder)
 bot.loadPlugin(collectBlock)
 bot.loadPlugin(toolPlugin)
 
+// Clientes de voz conectados. Cuando el bot "habla" por chat, reenviamos ese
+// texto a estos clientes para que lo lean en voz alta (TTS con ElevenLabs).
+const voiceClients = new Set()
+let chatEnvuelto = false
+
+// Frases internas que se muestran en el chat pero NO se leen en voz alta.
+const NO_HABLAR = ['Pensando en']
+
+function broadcastVoz(mensaje) {
+  if (NO_HABLAR.some(p => String(mensaje).startsWith(p))) return
+  for (const c of voiceClients) {
+    if (c.readyState === 1) {
+      try { c.send(String(mensaje)) } catch (e) { /* cliente caído, lo limpia 'close' */ }
+    }
+  }
+}
+
 bot.on('spawn', () => {
   console.log('✅ El bot entró al mundo')
+
+  // Envolver bot.chat AQUÍ (ya existe) para reenviar al TTS. Solo una vez,
+  // aunque haya respawns.
+  if (!chatEnvuelto && typeof bot.chat === 'function') {
+    const _chat = bot.chat.bind(bot)
+    bot.chat = (mensaje) => {
+      _chat(mensaje)
+      broadcastVoz(mensaje)
+    }
+    chatEnvuelto = true
+  }
+
   bot.chat('Reportándome listo.')
 
   const movements = new Movements(bot)
@@ -65,6 +94,7 @@ const wss = new WebSocketServer({ port: VOICE_PORT })
 
 wss.on('connection', (ws) => {
   console.log('🎙️ Cliente de voz conectado')
+  voiceClients.add(ws)
   ws.on('message', (data) => {
     const texto = data.toString().trim()
     if (!texto) return
@@ -74,7 +104,7 @@ wss.on('connection', (ws) => {
     }
     handleCommand(bot, texto, OWNER)
   })
-  ws.on('close', () => console.log('🎙️ Cliente de voz desconectado'))
+  ws.on('close', () => { voiceClients.delete(ws); console.log('🎙️ Cliente de voz desconectado') })
 })
 
 console.log(`🎧 Servidor de voz escuchando en ws://localhost:${VOICE_PORT}`)

@@ -18,3 +18,7 @@ python-dotenv
 
 # Hotkey global para push-to-talk (funciona aunque Minecraft tenga el foco)
 keyboard
+
+# Respuestas habladas (TTS): ElevenLabs + decodificador de audio para reproducir
+elevenlabs
+miniaudio

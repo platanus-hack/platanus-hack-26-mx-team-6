@@ -28,8 +28,10 @@ Config (voice/.env o variables de entorno):
 import io
 import os
 import sys
+import time
 import wave
 import queue
+import threading
 import collections
 
 import numpy as np
@@ -62,6 +64,11 @@ MIC_DEVICE = int(MIC_DEVICE) if MIC_DEVICE not in (None, "") else None
 INPUT_MODE = os.environ.get("INPUT_MODE", "ptt").lower()
 # Tecla para grabar en modo ptt. F8 no está asignada en Minecraft por defecto.
 PTT_KEY = os.environ.get("PTT_KEY", "f8")
+
+# ElevenLabs (respuestas habladas / TTS). Si no hay key, el TTS queda desactivado.
+ELEVEN_KEY = os.environ.get("ELEVENLABS_API_KEY")
+ELEVEN_VOICE = os.environ.get("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+ELEVEN_MODEL = os.environ.get("ELEVENLABS_MODEL", "eleven_multilingual_v2")
 
 SAMPLE_RATE = 16000          # webrtcvad solo acepta 8k/16k/32k/48k
 FRAME_MS = 30                # tamaño de frame para el VAD (10/20/30 ms)
@@ -249,6 +256,58 @@ def run_vad(send):
                         speech_frames = []
 
 
+def make_speaker():
+    """Devuelve speak(texto) que reproduce el texto con ElevenLabs, o None si no hay key."""
+    if not ELEVEN_KEY:
+        return None
+    try:
+        from elevenlabs.client import ElevenLabs
+        import miniaudio
+    except ImportError:
+        print("⚠️ Falta instalar 'elevenlabs' y 'miniaudio' para el TTS.")
+        return None
+
+    client = ElevenLabs(api_key=ELEVEN_KEY)
+    print(f"🔊 TTS ElevenLabs activado (voz {ELEVEN_VOICE}).")
+
+    def speak(texto):
+        try:
+            chunks = client.text_to_speech.convert(
+                voice_id=ELEVEN_VOICE,
+                model_id=ELEVEN_MODEL,
+                text=texto,
+                output_format="mp3_44100_128",
+            )
+            mp3 = b"".join(chunks)
+            decoded = miniaudio.decode(mp3)  # PCM int16
+            samples = np.array(decoded.samples, dtype=np.int16)
+            if decoded.nchannels > 1:
+                samples = samples.reshape(-1, decoded.nchannels)
+            sd.play(samples, decoded.sample_rate)
+            sd.wait()
+        except Exception as e:
+            print(f"⚠️ Error TTS: {e}")
+
+    return speak
+
+
+def run_receiver(ws_holder, speak):
+    """Hilo en segundo plano: lee lo que el bot responde y lo lee en voz alta."""
+    while True:
+        try:
+            msg = ws_holder["ws"].recv()
+        except Exception:
+            time.sleep(0.5)
+            continue
+        if not msg:
+            continue
+        texto = msg if isinstance(msg, str) else msg.decode("utf-8", "ignore")
+        texto = texto.strip()
+        if texto:
+            print(f"💬 Bot: {texto}")
+            speak(texto)
+
+
 def main():
     if "--list" in sys.argv:
         list_devices()
@@ -257,6 +316,10 @@ def main():
     transcribe = make_transcriber()
     ws_holder = {"ws": connect_ws()}
     send = make_sender(transcribe, ws_holder)
+
+    speak = make_speaker()
+    if speak:
+        threading.Thread(target=run_receiver, args=(ws_holder, speak), daemon=True).start()
 
     if INPUT_MODE == "ptt":
         run_ptt(send)
